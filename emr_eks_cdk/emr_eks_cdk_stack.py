@@ -27,6 +27,7 @@ class EmrEksCdkStack(core.Stack):
             "EMR-EKS-VPC",
             max_azs=3
         )
+        core.Tags.of(self.vpc).add("for-use-with-amazon-emr-managed-policies", "true")
 
         # EKS cluster
         self.cluster = eks.Cluster(self, "EksForSpark",

@@ -17,7 +17,7 @@ It deploys the following:
 
 ## Deployment
 
-We tested this deployment using CDK version 1.90.1.
+We tested this deployment using CDK version 1.99.0.
 
 After cloning the repo, download the Airflow plugin zip file:
 

@@ -22,13 +22,14 @@ setuptools.setup(
     packages=setuptools.find_packages(where="emr_eks_cdk"),
 
     install_requires=[
-        "aws-cdk.core",
-        "aws-cdk.aws-mwaa",
-        "aws-cdk.aws-emrcontainers",
-        "aws-cdk.aws-eks",
-        "aws-cdk.aws-ec2",
-        "aws-cdk.aws_acmpca",
-        "aws-cdk.aws-s3-deployment",
+        "aws-cdk.core==1.99.0",
+        "aws-cdk.aws-mwaa==1.99.0",
+        "aws-cdk.aws-emrcontainers==1.99.0",
+        "aws-cdk.aws-eks==1.99.0",
+        "aws-cdk.aws-ec2==1.99.0",
+        "aws-cdk.aws-emr==1.99.0",
+        "aws-cdk.aws_acmpca==1.99.0",
+        "aws-cdk.aws-s3-deployment==1.99.0",
         "pyOpenSSL",
         "boto3",
         "awscli"

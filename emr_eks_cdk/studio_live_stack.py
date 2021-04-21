@@ -1,7 +1,7 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: MIT-0
 
-from aws_cdk import aws_ec2 as ec2, aws_eks as eks, core, aws_emrcontainers as emrc, aws_iam as iam, aws_s3 as s3, custom_resources as custom, aws_acmpca as acmpca
+from aws_cdk import aws_ec2 as ec2, aws_eks as eks, core, aws_emrcontainers as emrc, aws_iam as iam, aws_s3 as s3, custom_resources as custom, aws_acmpca as acmpca, aws_emr as emr
 
 """
 This stack deploys the following:
@@ -25,26 +25,33 @@ class StudioLiveStack(core.Stack):
             description="EMR Studio Engine",
             allow_all_outbound=True
         )
+        core.Tags.of(eng_sg).add("for-use-with-amazon-emr-managed-policies", "true")
         ws_sg = ec2.SecurityGroup(self, "WorkspaceSecurityGroup",
             vpc=vpc,
             description="EMR Studio Workspace",
             allow_all_outbound=False
         )
+        core.Tags.of(ws_sg).add("for-use-with-amazon-emr-managed-policies", "true")
         ws_sg.add_egress_rule(ec2.Peer.any_ipv4(), ec2.Port.tcp(443), "allow egress on port 443")
         ws_sg.add_egress_rule(eng_sg, ec2.Port.tcp(18888), "allow egress on port 18888 to eng")
         eng_sg.add_ingress_rule(ws_sg, ec2.Port.tcp(18888), "allow ingress on port 18888 from ws")
 
         # Create Studio roles
         role = iam.Role(self, "StudioRole",
-            assumed_by=iam.ServicePrincipal("elasticmapreduce.amazonaws.com")
+            assumed_by=iam.ServicePrincipal("elasticmapreduce.amazonaws.com"),
+            managed_policies=[
+                iam.ManagedPolicy.from_aws_managed_policy_name("AmazonS3FullAccess")
+            ]
         )
         role.add_to_policy(iam.PolicyStatement(
             resources=["*"],
             actions=["ec2:AuthorizeSecurityGroupEgress",
                 "ec2:AuthorizeSecurityGroupIngress",
                 "ec2:CreateSecurityGroup",
+                "ec2:CreateTags",
                 "ec2:DescribeSecurityGroups",
                 "ec2:RevokeSecurityGroupEgress",
+                "ec2:RevokeSecurityGroupIngress",
                 "ec2:CreateNetworkInterface",
                 "ec2:CreateNetworkInterfacePermission",
                 "ec2:DeleteNetworkInterface",
@@ -60,31 +67,17 @@ class StudioLiveStack(core.Stack):
                 "elasticmapreduce:ListSteps"],
             effect=iam.Effect.ALLOW
         ))
-        string_eq = core.CfnJson(self, "ConditionJsonEq",
-            value={
-                "aws:TagKeys": ["aws:elasticmapreduce:editor-id","aws:elasticmapreduce:job-flow-id"]
-            }
-        )
-        role.add_to_policy(iam.PolicyStatement(
-            resources=["arn:aws:ec2:*:*:network-interface/*"],
-            actions=["ec2:CreateTags"],
-            effect=iam.Effect.ALLOW,
-            conditions={"ForAllValues:StringEquals": string_eq}
-        ))
-        role.add_to_policy(iam.PolicyStatement(
-            resources=["arn:aws:s3:::*"],
-            actions=["s3:PutObject","s3:GetObject","s3:GetEncryptionConfiguration","s3:ListBucket","s3:DeleteObject"],
-            effect=iam.Effect.ALLOW
-        ))
         role.add_to_policy(iam.PolicyStatement(
             resources=["arn:aws:secretsmanager:*:*:secret:*"],
             actions=["secretsmanager:GetSecretValue"],
             effect=iam.Effect.ALLOW
         ))
+        core.Tags.of(role).add("for-use-with-amazon-emr-managed-policies", "true")
 
         user_role = iam.Role(self, "StudioUserRole",
             assumed_by=iam.ServicePrincipal("elasticmapreduce.amazonaws.com")
         )
+        core.Tags.of(role).add("for-use-with-amazon-emr-managed-policies", "true")
         user_role.add_to_policy(iam.PolicyStatement(
             actions=["elasticmapreduce:CreateEditor",
                     "elasticmapreduce:DescribeEditor",
@@ -111,6 +104,7 @@ class StudioLiveStack(core.Stack):
                     "elasticmapreduce:GetPersistentAppUIPresignedURL",
                     "secretsmanager:CreateSecret",
                     "secretsmanager:ListSecrets",
+                    "secretsmanager:TagResource",
                     "emr-containers:DescribeVirtualCluster",
                     "emr-containers:ListVirtualClusters",
                     "emr-containers:DescribeManagedEndpoint",
@@ -295,60 +289,25 @@ class StudioLiveStack(core.Stack):
         managed_policy = iam.ManagedPolicy(self, "EmrPolicy",
             document=custom_policy_document
         )
-        studio = custom.AwsCustomResource(self, "CreateStudio",
-            on_create={
-                "service": "EMR",
-                "action": "createStudio",
-                "parameters": {
-                    "AuthMode": "SSO",
-                    "EngineSecurityGroupId": eng_sg.security_group_id,
-                    "Name": "EmrEksStudio",
-                    "ServiceRole": role.role_arn,
-                    "SubnetIds": [n.subnet_id for n in vpc.private_subnets],
-                    "UserRole": user_role.role_arn,
-                    "VpcId": vpc.vpc_id,
-                    "WorkspaceSecurityGroupId": ws_sg.security_group_id,
-                    "DefaultS3Location": f"s3://{bucket.bucket_name}/studio/",
-                },
-                "physical_resource_id": custom.PhysicalResourceId.from_response("StudioId")},
-            policy=custom.AwsCustomResourcePolicy.from_sdk_calls(resources=custom.AwsCustomResourcePolicy.ANY_RESOURCE),
-            function_name="CreateStudioFn",
-            role = iam.Role(
-                    scope=self,
-                    id=f'{construct_id}-LambdaRole',
-                    assumed_by=iam.ServicePrincipal('lambda.amazonaws.com'),
-                    managed_policies=[
-                        iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AWSLambdaBasicExecutionRole"),
-                        managed_policy
-                    ]
-                )
-        )
+        studio = emr.CfnStudio(self, "MyEmrStudio", 
+            auth_mode = "SSO", default_s3_location = f"s3://{bucket.bucket_name}/studio/", 
+            engine_security_group_id = eng_sg.security_group_id, 
+            name = "MyEmrEksStudio", 
+            service_role = role.role_arn, 
+            subnet_ids = [n.subnet_id for n in vpc.private_subnets], 
+            user_role = user_role.role_arn, 
+            vpc_id = vpc.vpc_id, 
+            workspace_security_group_id = ws_sg.security_group_id, 
+            description=None, 
+            tags=None)
         core.CfnOutput(
             self, "StudioUrl",
-            value=studio.get_response_field("Url")
+            value=studio.attr_url
         )
 
         # Create session mapping
-        studiosm = custom.AwsCustomResource(self, "CreateStudioSM",
-            on_create={
-                "service": "EMR",
-                "action": "createStudioSessionMapping",
-                "parameters": {
-                    "StudioId": studio.get_response_field("StudioId"),
-                    "IdentityType": "USER",
-                    "SessionPolicyArn": new_managed_policy.managed_policy_arn,
-                    "IdentityName": self.node.try_get_context("username")
-                },
-                "physical_resource_id": custom.PhysicalResourceId.of("StudioSM")},
-            policy=custom.AwsCustomResourcePolicy.from_sdk_calls(resources=custom.AwsCustomResourcePolicy.ANY_RESOURCE),
-            function_name="CreateStudioSMFn",
-            role = iam.Role(
-                    scope=self,
-                    id=f'{construct_id}-SMLambdaRole',
-                    assumed_by=iam.ServicePrincipal('lambda.amazonaws.com'),
-                    managed_policies=[
-                        iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AWSLambdaBasicExecutionRole"),
-                        managed_policy
-                    ]
-                )
-        )
+        studiosm = emr.CfnStudioSessionMapping(self, "MyStudioSM", 
+            identity_name = self.node.try_get_context("username"), 
+            identity_type = "USER", 
+            session_policy_arn = new_managed_policy.managed_policy_arn, 
+            studio_id = studio.attr_studio_id)
