@@ -15,33 +15,6 @@ class StudioStack(core.Stack):
     def __init__(self, scope: core.Construct, construct_id: str, executionRoleArn: str, virtualClusterId: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        # policy to let Lambda invoke the api
-        custom_policy_document = iam.PolicyDocument(statements=[
-            iam.PolicyStatement(
-                effect=iam.Effect.ALLOW,
-                actions=["acm:*"],
-                resources=["*"]
-            ),
-            iam.PolicyStatement(
-                effect=iam.Effect.ALLOW,
-                actions=["iam:PassRole"],
-                resources=["*"]
-            ),
-            iam.PolicyStatement(
-                effect=iam.Effect.ALLOW,
-                actions=["emr-containers:*"],
-                resources=["*"]
-            ),
-            iam.PolicyStatement(
-                effect=iam.Effect.ALLOW,
-                actions=["ec2:*"],
-                resources=["*"]
-            )
-        ])
-        managed_policy = iam.ManagedPolicy(self, "ACMPolicy",
-            document=custom_policy_document
-        )
-
         # cert for endpoint
         crt, pkey = self.cert_gen(serialNumber=random.randint(1000,10000))
         mycert = custom.AwsCustomResource(self, "CreateCert",
@@ -55,16 +28,7 @@ class StudioStack(core.Stack):
                 "physical_resource_id": custom.PhysicalResourceId.from_response("CertificateArn")
             },
             policy=custom.AwsCustomResourcePolicy.from_sdk_calls(resources=custom.AwsCustomResourcePolicy.ANY_RESOURCE),
-            function_name="CreateCertFn",
-            role = iam.Role(
-                    scope=self,
-                    id=f'{construct_id}-AcmRole',
-                    assumed_by=iam.ServicePrincipal('lambda.amazonaws.com'),
-                    managed_policies=[
-                        iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AWSLambdaBasicExecutionRole"),
-                        managed_policy
-                    ]
-                )
+            function_name="CreateCertFn"
         )
 
         # Set up managed endpoint for Studio
@@ -82,16 +46,7 @@ class StudioStack(core.Stack):
                 },
                 "physical_resource_id": custom.PhysicalResourceId.from_response("arn")},
             policy=custom.AwsCustomResourcePolicy.from_sdk_calls(resources=custom.AwsCustomResourcePolicy.ANY_RESOURCE),
-            function_name="CreateEpFn",
-            role = iam.Role(
-                    scope=self,
-                    id=f'{construct_id}-LambdaRole',
-                    assumed_by=iam.ServicePrincipal('lambda.amazonaws.com'),
-                    managed_policies=[
-                        iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AWSLambdaBasicExecutionRole"),
-                        managed_policy
-                    ]
-                )
+            function_name="CreateEpFn"
         )
         endpoint.node.add_dependency(mycert)
 
