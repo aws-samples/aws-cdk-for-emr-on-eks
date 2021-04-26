@@ -3,6 +3,7 @@
 
 from aws_cdk import aws_ec2 as ec2, aws_eks as eks, core, aws_emrcontainers as emrc, aws_iam as iam, aws_logs as logs, custom_resources as custom, aws_acmpca as acmpca
 from OpenSSL import crypto, SSL
+import random
 
 """
 This stack deploys the following:
@@ -42,7 +43,7 @@ class StudioStack(core.Stack):
         )
 
         # cert for endpoint
-        crt, pkey = self.cert_gen()
+        crt, pkey = self.cert_gen(serialNumber=random.randint(1000,10000))
         mycert = custom.AwsCustomResource(self, "CreateCert",
             on_update={
                 "service": "ACM",
