@@ -438,28 +438,3 @@ class EmrEksCdkStack(core.Stack):
             },
             wait=True
         ) 
-
-"""
-        lbrole = self.cluster.add_manifest("lbrole", {
-            "apiVersion":"rbac.authorization.k8s.io/v1",
-            "kind":"ClusterRole",
-            "metadata":{"name": "aws-load-balancer-controller"},
-            "rules": [
-                {"apiGroups": [""], "resources":["namespaces"],"verbs":["get"]},
-                {"apiGroups": [""], "resources":["serviceaccounts", "services", "configmaps", "events", "pods", "pods/log"],"verbs":["get", "list", "watch", "describe", "create", "edit", "delete", "deletecollection", "annotate", "patch", "label"]},
-                {"apiGroups": [""], "resources":["secrets"],"verbs":["create", "patch", "delete", "watch"]},
-                {"apiGroups": ["apps"], "resources":["statefulsets", "deployments"],"verbs":["get", "list", "watch", "describe", "create", "edit", "delete", "annotate", "patch", "label"]},
-                {"apiGroups": ["batch"], "resources":["jobs"],"verbs":["get", "list", "watch", "describe", "create", "edit", "delete", "annotate", "patch", "label"]},
-                {"apiGroups": ["extensions"], "resources":["ingresses"],"verbs":["get", "list", "watch", "describe", "create", "edit", "delete", "annotate", "patch", "label"]},
-                {"apiGroups": ["rbac.authorization.k8s.io"], "resources":["roles", "rolebindings"],"verbs":["get", "list", "watch", "describe", "create", "edit", "delete", "deletecollection", "annotate", "patch", "label"]}
-            ]
-        })
-        lbrolebind = self.cluster.add_manifest("lbrolebind", {
-            "apiVersion":"rbac.authorization.k8s.io/v1",
-            "kind":"ClusterRoleBinding",
-            "metadata":{"name": "aws-load-balancer-controller"},
-            "subjects":[{"kind": "ServiceAccount","name":"aws-load-balancer-controller","apiGroup": "", "namespace": "kube-system"}],
-            "roleRef":{"kind":"ClusterRole","name":"aws-load-balancer-controller","apiGroup": "rbac.authorization.k8s.io"}
-        })
-        lbrolebind.node.add_dependency(lbrole)
-"""
