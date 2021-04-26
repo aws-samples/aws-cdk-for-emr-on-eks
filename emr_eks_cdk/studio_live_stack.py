@@ -67,11 +67,6 @@ class StudioLiveStack(core.Stack):
                 "elasticmapreduce:ListSteps"],
             effect=iam.Effect.ALLOW
         ))
-        role.add_to_policy(iam.PolicyStatement(
-            resources=["arn:aws:secretsmanager:*:*:secret:*"],
-            actions=["secretsmanager:GetSecretValue"],
-            effect=iam.Effect.ALLOW
-        ))
         core.Tags.of(role).add("for-use-with-amazon-emr-managed-policies", "true")
 
         user_role = iam.Role(self, "StudioUserRole",
@@ -259,36 +254,6 @@ class StudioLiveStack(core.Stack):
         )
 
         # Set up Studio
-        custom_policy_document = iam.PolicyDocument(statements=[
-            iam.PolicyStatement(
-                effect=iam.Effect.ALLOW,
-                actions=["iam:PassRole"],
-                resources=["*"]
-            ),
-            iam.PolicyStatement(
-                effect=iam.Effect.ALLOW,
-                actions=["sso:*"],
-                resources=["*"]
-            ),
-            iam.PolicyStatement(
-                effect=iam.Effect.ALLOW,
-                actions=["sso-directory:*"],
-                resources=["*"]
-            ),
-            iam.PolicyStatement(
-                effect=iam.Effect.ALLOW,
-                actions=["emr:*"],
-                resources=["*"]
-            ),
-            iam.PolicyStatement(
-                effect=iam.Effect.ALLOW,
-                actions=["ec2:*"],
-                resources=["*"]
-            )
-        ])
-        managed_policy = iam.ManagedPolicy(self, "EmrPolicy",
-            document=custom_policy_document
-        )
         studio = emr.CfnStudio(self, "MyEmrStudio", 
             auth_mode = "SSO", default_s3_location = f"s3://{bucket.bucket_name}/studio/", 
             engine_security_group_id = eng_sg.security_group_id, 
