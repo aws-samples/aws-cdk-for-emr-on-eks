@@ -105,6 +105,16 @@ Deploy the `studio-cdk` script.  Wait for it to deploy and check to make sure th
 
     aws emr-containers list-managed-endpoints --virtual-cluster-id <cluster ID> | jq '.endpoints[].state'
 
+If the endpoint fails to create, try creating it again manually:
+
+    aws emr-containers create-managed-endpoint \
+        --type JUPYTER_ENTERPRISE_GATEWAY \
+        --virtual-cluster-id <virtual cluster ID> \
+        --name <example-endpoint-name> \
+        --execution-role-arn <job role ARN>
+        --release-label <emr-6.2.0-latest>
+        --certificate-arn <certificate ARN>
+
 Now deploy the `studio-live-cdk` script.  The script will output the URL for your Studio environment.   
 
 ## Security
