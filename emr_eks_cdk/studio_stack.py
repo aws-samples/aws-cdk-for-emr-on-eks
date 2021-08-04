@@ -15,6 +15,36 @@ class StudioStack(core.Stack):
     def __init__(self, scope: core.Construct, construct_id: str, executionRoleArn: str, virtualClusterId: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
+        # policy to let Lambda invoke the api
+        custom_policy_document = iam.PolicyDocument(statements=[
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=["ec2:CreateSecurityGroup",
+                        "ec2:RevokeSecurityGroupEgress",
+                        "ec2:CreateSecurityGroup",
+                        "ec2:DeleteSecurityGroup",
+                        "ec2:AuthorizeSecurityGroupEgress",
+                        "ec2:AuthorizeSecurityGroupIngress",
+                        "ec2:RevokeSecurityGroupIngress",
+                        "ec2:DeleteSecurityGroup"
+                        ],
+                resources=["*"]
+            )
+        ])
+        managed_policy = iam.ManagedPolicy(self, "EMR_on_EKS_security_group",
+            document=custom_policy_document
+        )
+
+        self.role = iam.Role(
+                scope=self,
+                id=f'{construct_id}-LambdaRole',
+                assumed_by=iam.ServicePrincipal('lambda.amazonaws.com'),
+                managed_policies=[
+                    iam.ManagedPolicy.from_aws_managed_policy_name("service-role/AWSLambdaBasicExecutionRole"),
+                    managed_policy
+                ]
+            )
+
         # cert for endpoint
         crt, pkey = self.cert_gen(serialNumber=random.randint(1000,10000))
         mycert = custom.AwsCustomResource(self, "CreateCert",
@@ -28,6 +58,7 @@ class StudioStack(core.Stack):
                 "physical_resource_id": custom.PhysicalResourceId.from_response("CertificateArn")
             },
             policy=custom.AwsCustomResourcePolicy.from_sdk_calls(resources=custom.AwsCustomResourcePolicy.ANY_RESOURCE),
+            role=self.role,
             function_name="CreateCertFn"
         )
 
@@ -46,6 +77,7 @@ class StudioStack(core.Stack):
                 },
                 "physical_resource_id": custom.PhysicalResourceId.from_response("arn")},
             policy=custom.AwsCustomResourcePolicy.from_sdk_calls(resources=custom.AwsCustomResourcePolicy.ANY_RESOURCE),
+            role=self.role,
             function_name="CreateEpFn"
         )
         endpoint.node.add_dependency(mycert)
