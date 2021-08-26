@@ -68,6 +68,8 @@ The virtual cluster IDs are also in the CDK stack output.
 
 You can run a test application with this command:
 
+This command uses `local://` scheme to refer to a `pi.py` file as the `entryPoint` for the job. This file is already pre-built into the docker image and can be referenced using `local://` scheme. Note that the `local://` scheme can only be used to reference files that are pre-built into the docker image. It can not be used to refer to files in your local filesystem.
+
     aws emr-containers start-job-run \
         --virtual-cluster-id <virtual cluster ID> \
         --name sample-job-name \
@@ -90,6 +92,8 @@ Then trigger the DAG.
 ## Running on Graviton2 node group
 
 Deploy the stack with `m6g.xlarge` as the instance type rather than `m5.xlarge`.  Then include a node selector when you start the job.
+
+This command uses `local://` scheme to refer to a `pi.py` file as the `entryPoint` for the job. This file is already pre-built into the docker image and can be referenced using `local://` scheme. Note that the `local://` scheme can only be used to reference files that are pre-built into the docker image. It can not be used to refer to files in your local filesystem.
 
     aws emr-containers start-job-run \
         --virtual-cluster-id <virtual cluster ID> \
